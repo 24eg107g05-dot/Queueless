@@ -53,11 +53,22 @@ public class RuleBasedAiAssistantService {
         }
 
         // 3. Currently Serving inquiry
-        if (msg.contains("currently being served") || msg.contains("is being served") ||
-            msg.contains("who is being served") || msg.contains("which token is being served") ||
-            msg.contains("what is currently serving") || msg.contains("who is currently being served") ||
-            msg.contains("currently serving") || msg.contains("now serving") ||
-            (msg.contains("current token") && (msg.contains("for") || msg.contains("is") || msg.contains("serving")))) {
+        boolean isServingInquiry = msg.contains("currently being served") ||
+                msg.contains("is being served") ||
+                msg.contains("who is being served") ||
+                msg.contains("which token is being served") ||
+                msg.contains("what is currently being served") ||
+                msg.contains("what is being served") ||
+                msg.contains("what is currently serving") ||
+                msg.contains("who is currently being served") ||
+                msg.contains("who is currently serving") ||
+                msg.contains("currently serving") ||
+                msg.contains("now serving") ||
+                msg.contains("serving token") ||
+                msg.contains("active token") ||
+                (msg.contains("current token") && (msg.contains("for") || msg.contains("is") || msg.contains("serving") || msg.contains("what") || msg.contains("which")));
+
+        if (isServingInquiry) {
             return handleCurrentlyServingInquiry(msg, serviceId);
         }
 
@@ -116,7 +127,7 @@ public class RuleBasedAiAssistantService {
                 Queue queue = service != null ? queueRepository.findByServiceEntityId(service.getId()).orElse(null) : null;
                 int avgTime = service != null ? service.getAverageServiceTime() : 10;
                 int waitTime = token.getQueuePosition() * avgTime;
-                String currentServing = (queue != null && queue.getCurrentServingToken() != null) ? queue.getCurrentServingToken() : "None yet";
+                String currentServing = service != null ? getCurrentlyServingTextForService(service.getId(), queue) : "No token is currently being served";
 
                 return String.format(
                         "Token %s (%s):\n• Status: %s\n• Queue Position: %d\n• Currently Serving: %s\n• Estimated Wait: ~%d minutes",
@@ -141,7 +152,7 @@ public class RuleBasedAiAssistantService {
                 for (Token t : active) {
                     ServiceEntity s = t.getServiceEntity();
                     Queue q = s != null ? queueRepository.findByServiceEntityId(s.getId()).orElse(null) : null;
-                    String serving = (q != null && q.getCurrentServingToken() != null) ? q.getCurrentServingToken() : "None";
+                    String serving = s != null ? getCurrentlyServingTextForService(s.getId(), q) : "No token is currently being served";
                     int wait = t.getQueuePosition() * (s != null ? s.getAverageServiceTime() : 10);
                     sb.append(String.format("• Token %s for %s: %s (Position: %d, Serving: %s, Est. Wait: ~%d min)\n",
                             t.getTokenNumber(), s != null ? s.getName() : "Service", t.getStatus(), t.getQueuePosition(), serving, wait));
@@ -155,22 +166,44 @@ public class RuleBasedAiAssistantService {
 
     private String handleCurrentlyServingInquiry(String msg, Long preferredServiceId) {
         List<ServiceEntity> services = serviceRepository.findByActiveTrue();
-        ServiceEntity matchedService = null;
-        for (ServiceEntity s : services) {
-            String sName = s.getName().toLowerCase(Locale.ROOT);
-            if (msg.contains(sName) || sName.contains(msg) ||
-                    java.util.Arrays.stream(sName.split("\\s+")).anyMatch(w -> w.length() > 3 && msg.contains(w))) {
-                matchedService = s;
-                break;
-            }
-            if (s.getCategory() != null && msg.contains(s.getCategory().toLowerCase(Locale.ROOT))) {
-                matchedService = s;
-                break;
-            }
-        }
+        boolean asksGeneralSystemServing = !msg.contains(" for ") && (
+                msg.contains("currently being served") ||
+                msg.contains("what is currently serving") ||
+                msg.contains("who is currently being served") ||
+                msg.contains("who is being served") ||
+                msg.contains("which token is being served") ||
+                msg.contains("what is being served") ||
+                msg.contains("all") ||
+                msg.contains("every") ||
+                msg.equals("currently serving") ||
+                msg.equals("now serving")
+        );
 
-        if (matchedService == null && preferredServiceId != null) {
-            matchedService = serviceRepository.findById(preferredServiceId).orElse(null);
+        ServiceEntity matchedService = null;
+        if (!asksGeneralSystemServing) {
+            int longestMatch = 0;
+            for (ServiceEntity s : services) {
+                String sName = s.getName().toLowerCase(Locale.ROOT);
+                if (sName.length() >= 3 && (msg.contains(sName) || java.util.regex.Pattern.compile("\\b" + java.util.regex.Pattern.quote(sName) + "\\b").matcher(msg).find())) {
+                    if (sName.length() > longestMatch) {
+                        longestMatch = sName.length();
+                        matchedService = s;
+                    }
+                }
+            }
+
+            if (matchedService == null) {
+                for (ServiceEntity s : services) {
+                    if (s.getCategory() != null && s.getCategory().length() >= 4 && msg.contains(s.getCategory().toLowerCase(Locale.ROOT))) {
+                        matchedService = s;
+                        break;
+                    }
+                }
+            }
+
+            if (matchedService == null && preferredServiceId != null) {
+                matchedService = serviceRepository.findById(preferredServiceId).orElse(null);
+            }
         }
 
         // Specific service requested (e.g. "What is the current token for Cardiology?")
@@ -179,7 +212,7 @@ public class RuleBasedAiAssistantService {
             if (servingList.isEmpty()) {
                 return String.format("No token is currently being served for %s.", matchedService.getName());
             }
-            StringBuilder sb = new StringBuilder(String.format("Currently serving for %s:\n", matchedService.getName()));
+            StringBuilder sb = new StringBuilder(String.format("Currently Serving for %s:\n", matchedService.getName()));
             for (Token t : servingList) {
                 String counter = t.getCounter();
                 if (counter == null || counter.trim().isEmpty()) {
@@ -218,14 +251,14 @@ public class RuleBasedAiAssistantService {
             return servingTokens.stream()
                     .map(t -> {
                         String counter = t.getCounter();
-                        return t.getTokenNumber() + (counter != null ? " (" + counter + ")" : "");
+                        return "Token " + t.getTokenNumber() + (counter != null ? " (" + counter + ")" : "");
                     })
                     .collect(Collectors.joining(", "));
         }
         if (q != null && q.getCurrentServingToken() != null && !q.getCurrentServingToken().trim().isEmpty()) {
-            return q.getCurrentServingToken();
+            return "Token " + q.getCurrentServingToken();
         }
-        return "None";
+        return "No token is currently being served";
     }
 
     private String handleAvailableServicesInquiry() {
@@ -254,16 +287,23 @@ public class RuleBasedAiAssistantService {
 
         // Try to find if user asked about a specific service name (e.g. "cardiology", "general consultation")
         ServiceEntity matchedService = null;
+        int longestMatch = 0;
         for (ServiceEntity s : services) {
             String sName = s.getName().toLowerCase(Locale.ROOT);
-            if (msg.contains(sName) || sName.contains(msg) ||
-                    java.util.Arrays.stream(sName.split("\\s+")).anyMatch(w -> w.length() > 3 && msg.contains(w))) {
-                matchedService = s;
-                break;
+            if (sName.length() >= 3 && (msg.contains(sName) || java.util.regex.Pattern.compile("\\b" + java.util.regex.Pattern.quote(sName) + "\\b").matcher(msg).find())) {
+                if (sName.length() > longestMatch) {
+                    longestMatch = sName.length();
+                    matchedService = s;
+                }
             }
-            if (s.getCategory() != null && msg.contains(s.getCategory().toLowerCase(Locale.ROOT))) {
-                matchedService = s;
-                break;
+        }
+
+        if (matchedService == null) {
+            for (ServiceEntity s : services) {
+                if (s.getCategory() != null && s.getCategory().length() >= 4 && msg.contains(s.getCategory().toLowerCase(Locale.ROOT))) {
+                    matchedService = s;
+                    break;
+                }
             }
         }
 

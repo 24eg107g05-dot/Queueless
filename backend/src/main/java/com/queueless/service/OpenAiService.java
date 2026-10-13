@@ -84,6 +84,7 @@ public class OpenAiService {
                     }
                 }
             }
+            return null;
         } catch (org.springframework.web.client.HttpStatusCodeException httpEx) {
             logger.error("OpenAI API HTTP error (status {}): {}", httpEx.getStatusCode(), httpEx.getResponseBodyAsString());
             return null;

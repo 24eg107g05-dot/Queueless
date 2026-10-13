@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import api from '../../services/api';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import CurrentlyServingList from '../../components/common/CurrentlyServingList';
 import { Users, Clock, ArrowLeft, Activity } from 'lucide-react';
 import { formatTokenNumber, formatWaitTime } from '../../utils/helpers';
 
@@ -29,7 +30,11 @@ const QueueStatusPage = () => {
   }, [serviceId]);
 
   useWebSocket(serviceId, (data) => {
-    setQueueData(data);
+    if (data === 'UPDATE' || typeof data === 'string') {
+      fetchQueueStatus();
+    } else {
+      setQueueData(data);
+    }
   });
 
   if (isLoading) return <LoadingSpinner fullScreen />;
@@ -45,15 +50,18 @@ const QueueStatusPage = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{queueData.serviceName}</h1>
           <p className="text-gray-500 flex items-center gap-2">
-            <Activity className="h-4 w-4 text-green-500" /> Live Status
+            <Activity className="h-4 w-4 text-green-500" /> Live Queue Status
           </p>
         </div>
       </div>
 
+      {/* Real-time Currently Serving Section for this service */}
+      <CurrentlyServingList serviceId={serviceId} title={`Currently Serving (${queueData.serviceName})`} />
+
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-1 space-y-6">
           <div className="bg-primary-600 rounded-2xl p-6 text-white text-center shadow-lg">
-            <h3 className="text-primary-100 font-medium mb-2">Currently Serving</h3>
+            <h3 className="text-primary-100 font-medium mb-2">Active Serving Token</h3>
             <div className="text-6xl font-bold mb-4">
               {queueData.currentlyServing ? formatTokenNumber(queueData.currentlyServing) : '---'}
             </div>

@@ -40,16 +40,21 @@ public class QueueService {
         ServiceEntity service = queue.getServiceEntity();
 
         List<Token> waitingTokensList = tokenRepository.findByServiceEntityIdAndStatusOrderByCreatedAtAsc(serviceId, TokenStatus.WAITING);
-        List<Token> servingTokensList = tokenRepository.findByServiceEntityIdAndStatusOrderByCreatedAtAsc(serviceId, TokenStatus.SERVING);
+        List<Token> servingTokensList = tokenRepository.findByServiceEntityIdAndStatusOrderByCalledAtAsc(serviceId, TokenStatus.SERVING);
 
         Token servingToken = servingTokensList.isEmpty() ? null : servingTokensList.get(0);
+        List<CurrentlyServingResponse> servingResponses = servingTokensList.stream()
+                .map(this::mapToCurrentlyServingResponse)
+                .collect(Collectors.toList());
+
+        String servingTokenNumber = servingToken != null ? servingToken.getTokenNumber() : queue.getCurrentServingToken();
 
         List<TokenResponse> waitingResponses = waitingTokensList.stream().map(t -> TokenResponse.builder()
                 .id(t.getId())
                 .tokenNumber(t.getTokenNumber())
                 .status(t.getStatus())
                 .queuePosition(t.getQueuePosition())
-                .currentServingToken(queue.getCurrentServingToken())
+                .currentServingToken(servingTokenNumber)
                 .estimatedWaitMinutes(t.getQueuePosition() * service.getAverageServiceTime())
                 .estimatedWaitTime(t.getQueuePosition() * service.getAverageServiceTime())
                 .serviceName(service.getName())
@@ -61,9 +66,10 @@ public class QueueService {
         return QueueStatusResponse.builder()
                 .serviceId(service.getId())
                 .serviceName(service.getName())
-                .currentServingToken(queue.getCurrentServingToken())
-                .currentlyServing(queue.getCurrentServingToken())
+                .currentServingToken(servingTokenNumber)
+                .currentlyServing(servingTokenNumber)
                 .servingTokenId(servingToken != null ? servingToken.getId() : null)
+                .servingTokens(servingResponses)
                 .waitingCount(waitingTokensList.size())
                 .queueStatus(queue.getQueueStatus())
                 .tokens(waitingResponses)
@@ -113,15 +119,18 @@ public class QueueService {
     }
 
     @Transactional
-    public void callNextToken(Long serviceId) {
+    public void callNextToken(Long serviceId, String counter) {
         List<Token> waitingTokens = tokenRepository.findByServiceEntityIdAndStatusOrderByCreatedAtAsc(serviceId, TokenStatus.WAITING);
         if (!waitingTokens.isEmpty()) {
             Token nextToken = waitingTokens.get(0);
             nextToken.setStatus(TokenStatus.SERVING);
             nextToken.setCalledAt(LocalDateTime.now());
-            if (nextToken.getCounter() == null) {
-                long cNum = (serviceId % 5 == 0) ? 5 : (serviceId % 5);
-                nextToken.setCounter("Counter " + cNum);
+            if (counter != null && !counter.trim().isEmpty()) {
+                nextToken.setCounter(counter.trim());
+            } else if (nextToken.getCounter() == null || nextToken.getCounter().trim().isEmpty()) {
+                List<Token> existingServing = tokenRepository.findByServiceEntityIdAndStatusOrderByCalledAtAsc(serviceId, TokenStatus.SERVING);
+                int counterIdx = existingServing.size() + 1;
+                nextToken.setCounter("Counter " + counterIdx);
             }
             tokenRepository.save(nextToken);
 
@@ -132,6 +141,11 @@ public class QueueService {
             eventPublisher.publishQueueUpdate(serviceId);
             eventPublisher.publishServingUpdate(getCurrentlyServingTokens());
         }
+    }
+
+    @Transactional
+    public void callNextToken(Long serviceId) {
+        callNextToken(serviceId, null);
     }
 
     @Transactional

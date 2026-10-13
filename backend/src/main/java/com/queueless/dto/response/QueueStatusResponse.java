@@ -18,6 +18,7 @@ public class QueueStatusResponse {
     private String currentServingToken;
     private String currentlyServing;
     private Long servingTokenId;
+    private List<CurrentlyServingResponse> servingTokens;
     private int waitingCount;
     private QueueStatus queueStatus;
     private List<TokenResponse> tokens;

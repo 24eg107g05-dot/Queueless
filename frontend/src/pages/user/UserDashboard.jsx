@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../hooks/useNotifications';
 import api from '../../services/api';
 import TokenCard from '../../components/common/TokenCard';
+import CurrentlyServingList from '../../components/common/CurrentlyServingList';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { Ticket, Search, Bot } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -53,6 +54,9 @@ const UserDashboard = () => {
           <p className="text-gray-500 mt-1">Here is what is happening with your queues today.</p>
         </div>
       </div>
+
+      {/* Real-Time Currently Serving Section */}
+      <CurrentlyServingList />
 
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">

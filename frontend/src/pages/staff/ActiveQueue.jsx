@@ -33,14 +33,22 @@ const ActiveQueue = () => {
     fetchQueue();
   }, [serviceId]);
 
+  const [counterNumber, setCounterNumber] = useState('Counter 1');
+
   useWebSocket(serviceId, (data) => {
-    setQueueData(data);
+    if (data === 'UPDATE' || typeof data === 'string') {
+      fetchQueue();
+    } else {
+      setQueueData(data);
+    }
   });
 
   const handleCallNext = async () => {
     try {
-      await api.post(`/queue/${serviceId}/next`);
-      toast.success('Called next token');
+      await api.post(`/queue/${serviceId}/next`, null, {
+        params: { counter: counterNumber }
+      });
+      toast.success(`Called next token to ${counterNumber}`);
       fetchQueue();
     } catch (error) {
       toast.error('Failed to call next');
@@ -71,43 +79,75 @@ const ActiveQueue = () => {
   if (isLoading) return <LoadingSpinner fullScreen />;
   if (!queueData) return <div className="p-8 text-center text-gray-500">No data available</div>;
 
+  const servingTokensList = queueData.servingTokens || (queueData.servingTokenId ? [{
+    tokenId: queueData.servingTokenId,
+    tokenNumber: queueData.currentlyServing,
+    counter: counterNumber,
+    serviceName: queueData.serviceName
+  }] : []);
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{queueData.serviceName}</h1>
           <p className="text-sm text-gray-500">Active Queue Management</p>
         </div>
-        <button
-          onClick={handleCallNext}
-          className="bg-primary-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-primary-700 transition-colors flex items-center gap-2 shadow-sm"
-        >
-          <Play className="h-5 w-5" />
-          Call Next Waiting
-        </button>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <input
+            type="text"
+            value={counterNumber}
+            onChange={(e) => setCounterNumber(e.target.value)}
+            placeholder="Counter 1"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-28 focus:ring-2 focus:ring-primary-500 focus:outline-none"
+            title="Desk/Counter Label"
+          />
+          <button
+            onClick={handleCallNext}
+            className="flex-1 sm:flex-none bg-primary-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-primary-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
+          >
+            <Play className="h-4 w-4" />
+            Call Next Waiting
+          </button>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-3 gap-6">
-        <div className="md:col-span-1">
+        <div className="md:col-span-1 space-y-4">
           <div className="bg-primary-50 border border-primary-100 rounded-xl p-6 text-center">
             <h2 className="text-sm font-semibold text-primary-700 uppercase tracking-wider mb-2">Currently Serving</h2>
-            <div className="text-6xl font-bold text-primary-900 mb-4">
-              {queueData.currentlyServing ? formatTokenNumber(queueData.currentlyServing) : '---'}
-            </div>
-            {queueData.currentlyServing && queueData.servingTokenId && (
-              <div className="flex flex-col gap-2">
-                <button 
-                  onClick={() => handleComplete(queueData.servingTokenId)}
-                  className="w-full bg-green-500 text-white py-2 rounded flex justify-center items-center gap-2 hover:bg-green-600"
-                >
-                  <Check className="h-4 w-4" /> Complete
-                </button>
-                <button 
-                  onClick={() => handleSkip(queueData.servingTokenId)}
-                  className="w-full bg-gray-200 text-gray-700 py-2 rounded flex justify-center items-center gap-2 hover:bg-gray-300"
-                >
-                  <SkipForward className="h-4 w-4" /> Skip
-                </button>
+            
+            {servingTokensList.length > 0 ? (
+              <div className="space-y-4">
+                {servingTokensList.map((st) => (
+                  <div key={st.tokenId || st.tokenNumber} className="bg-white p-4 rounded-xl border border-primary-200 shadow-2xs">
+                    <div className="text-4xl font-extrabold text-primary-900 mb-1">
+                      {formatTokenNumber(st.tokenNumber)}
+                    </div>
+                    <div className="text-xs font-semibold text-primary-700 mb-3 bg-primary-50 py-1 px-2 rounded inline-block">
+                      {st.counter || 'Counter'}
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => handleComplete(st.tokenId)}
+                        className="flex-1 bg-green-500 text-white py-1.5 px-2 rounded-lg text-xs font-semibold flex justify-center items-center gap-1 hover:bg-green-600 transition-colors"
+                      >
+                        <Check className="h-3.5 w-3.5" /> Complete
+                      </button>
+                      <button 
+                        onClick={() => handleSkip(st.tokenId)}
+                        className="bg-gray-200 text-gray-700 py-1.5 px-2 rounded-lg text-xs font-semibold flex justify-center items-center gap-1 hover:bg-gray-300 transition-colors"
+                      >
+                        <SkipForward className="h-3.5 w-3.5" /> Skip
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-8">
+                <div className="text-5xl font-bold text-gray-300 mb-2">---</div>
+                <p className="text-xs text-gray-500">No token currently being served</p>
               </div>
             )}
           </div>

@@ -99,11 +99,11 @@ public class AiAssistantRouterService {
             List<Token> sServing = tokenRepository.findByServiceEntityIdAndStatusOrderByCalledAtAsc(s.getId(), TokenStatus.SERVING);
             String serving;
             if (!sServing.isEmpty()) {
-                serving = sServing.stream().map(Token::getTokenNumber).collect(java.util.stream.Collectors.joining(", "));
+                serving = sServing.stream().map(t -> "Token " + t.getTokenNumber() + " (" + (t.getCounter() != null ? t.getCounter() : "Counter 1") + ")").collect(java.util.stream.Collectors.joining(", "));
             } else if (q != null && q.getCurrentServingToken() != null && !q.getCurrentServingToken().trim().isEmpty()) {
-                serving = q.getCurrentServingToken();
+                serving = "Token " + q.getCurrentServingToken();
             } else {
-                serving = "None";
+                serving = "No token is currently being served";
             }
             sb.append(String.format("- %s (ID: %d, Category: %s, Avg duration: %d min): Serving %s, Waiting count %d.\n",
                     s.getName(), s.getId(), s.getCategory(), s.getAverageServiceTime(), serving, waiting));

@@ -31,6 +31,7 @@ public class TokenService {
     @Autowired private UserRepository userRepository;
     @Autowired private NotificationService notificationService;
     @Autowired private WebSocketEventPublisher eventPublisher;
+    @Autowired private QueueService queueService;
 
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public TokenResponse generateToken(Long serviceId, Long userId) {
@@ -87,10 +88,25 @@ public class TokenService {
             throw new RuntimeException("Unauthorized to cancel this token");
         }
 
+        TokenStatus previousStatus = token.getStatus();
         token.setStatus(TokenStatus.CANCELLED);
         tokenRepository.save(token);
 
         Long serviceId = token.getServiceEntity().getId();
+        if (previousStatus == TokenStatus.SERVING) {
+            Queue queue = queueRepository.findByServiceEntityId(serviceId).orElse(null);
+            if (queue != null) {
+                List<Token> otherServing = tokenRepository.findByServiceEntityIdAndStatusOrderByCalledAtAsc(serviceId, TokenStatus.SERVING);
+                if (!otherServing.isEmpty()) {
+                    queue.setCurrentServingToken(otherServing.get(0).getTokenNumber());
+                } else {
+                    queue.setCurrentServingToken(null);
+                }
+                queueRepository.save(queue);
+            }
+            eventPublisher.publishServingUpdate(queueService.getCurrentlyServingTokens());
+        }
+
         notificationService.createNotification(userId, "Your token " + token.getTokenNumber() + " has been cancelled.", "TOKEN_CANCELLED");
         eventPublisher.publishQueueUpdate(serviceId);
     }

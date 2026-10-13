@@ -10,6 +10,7 @@ const AiAssistantPage = () => {
   const serviceId = searchParams.get('serviceId');
 
   const suggestedQueries = [
+    "What is currently being served?",
     "How long is the wait for Cardiology?",
     "What services are available right now?",
     "How do I cancel my token?",

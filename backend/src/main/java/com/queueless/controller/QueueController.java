@@ -38,8 +38,10 @@ public class QueueController {
     }
 
     @PostMapping("/{serviceId}/next")
-    public ResponseEntity<Void> callNext(@PathVariable Long serviceId) {
-        queueService.callNextToken(serviceId);
+    public ResponseEntity<Void> callNext(
+            @PathVariable Long serviceId,
+            @RequestParam(required = false) String counter) {
+        queueService.callNextToken(serviceId, counter);
         return ResponseEntity.ok().build();
     }
 

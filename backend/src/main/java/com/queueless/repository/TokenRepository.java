@@ -20,6 +20,8 @@ public interface TokenRepository extends JpaRepository<Token, Long> {
 
     List<Token> findByStatusOrderByCalledAtAsc(TokenStatus status);
 
+    List<Token> findByServiceEntityIdAndStatusOrderByCalledAtAsc(Long serviceEntityId, TokenStatus status);
+
     List<Token> findByStatus(TokenStatus status);
 
     long countByServiceEntityIdAndStatus(Long serviceEntityId, TokenStatus status);
