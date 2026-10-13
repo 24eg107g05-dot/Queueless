@@ -18,7 +18,8 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: .
+      target: backend
     restart: unless-stopped
     environment:
       DB_URL: jdbc:mysql://db:3306/queueless?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
@@ -36,7 +37,8 @@ services:
 
   frontend:
     build:
-      context: ./frontend
+      context: .
+      target: frontend
     restart: unless-stopped
     ports:
       - "${FRONTEND_PORT:-8080}:8080"
