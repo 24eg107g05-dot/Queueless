@@ -1,3 +1,4 @@
+
 package com.queueless.config;
 
 import com.queueless.security.JwtAuthenticationFilter;
@@ -32,30 +33,61 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
-        return authenticationConfiguration.getAuthenticationManager();
+    public AuthenticationManager authenticationManager(
+            AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http)
+            throws Exception {
+
         http
             .cors(Customizer.withDefaults())
             .csrf(AbstractHttpConfigurer::disable)
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .sessionManagement(session ->
+                session.sessionCreationPolicy(
+                    SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+
+                // React frontend
+                .requestMatchers(
+                    "/",
+                    "/index.html",
+                    "/assets/**",
+                    "/favicon.ico",
+                    "/vite.svg",
+                    "/manifest.json",
+                    "/robots.txt"
+                ).permitAll()
+
+                // Public endpoints
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers("/api/services/**").permitAll()
-                .requestMatchers("/api/queue/serving", "/api/queue/*/serving").permitAll()
-                .requestMatchers("/api/queue/*/status", "/api/queue/*").permitAll()
+                .requestMatchers(
+                    "/api/queue/serving",
+                    "/api/queue/*/serving",
+                    "/api/queue/*/status",
+                    "/api/queue/*"
+                ).permitAll()
                 .requestMatchers("/api/ai/**").permitAll()
+
+                // Protected endpoints
                 .requestMatchers("/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/queue/*/next").hasAnyRole("STAFF", "ADMIN")
-                .requestMatchers("/staff/**").hasAnyRole("STAFF", "ADMIN")
+                .requestMatchers("/staff/**")
+                    .hasAnyRole("STAFF", "ADMIN")
+                .requestMatchers("/api/queue/*/next")
+                    .hasAnyRole("STAFF", "ADMIN")
+
+                // Everything else requires authentication
                 .anyRequest().authenticated()
             );
 
-        http.addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(
+            jwtAuthenticationFilter(),
+            UsernamePasswordAuthenticationFilter.class
+        );
 
         return http.build();
     }
