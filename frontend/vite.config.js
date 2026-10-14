@@ -12,11 +12,11 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: ' https://queueless-1itj.onrender.com',
         changeOrigin: true,
       },
       '/ws': {
-        target: 'http://localhost:8080',
+        target: ' https://queueless-1itj.onrender.com',
         ws: true,
         changeOrigin: true,
       },
