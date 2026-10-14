@@ -1,4 +1,3 @@
-
 package com.queueless.config;
 
 import com.queueless.security.JwtAuthenticationFilter;
@@ -16,6 +15,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -39,6 +43,32 @@ public class SecurityConfig {
     }
 
     @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        configuration.setAllowedOrigins(
+            List.of("https://superb-pegasus-2dc764.netlify.app")
+        );
+
+        configuration.setAllowedMethods(
+            List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
+        );
+
+        configuration.setAllowedHeaders(
+            List.of("Authorization", "Content-Type", "Accept", "Origin")
+        );
+
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source =
+            new UrlBasedCorsConfigurationSource();
+
+        source.registerCorsConfiguration("/**", configuration);
+
+        return source;
+    }
+
+    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http)
             throws Exception {
 
@@ -46,11 +76,10 @@ public class SecurityConfig {
             .cors(Customizer.withDefaults())
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session ->
-                session.sessionCreationPolicy(
-                    SessionCreationPolicy.STATELESS))
+                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
 
-                // React frontend
+                // React frontend static files
                 .requestMatchers(
                     "/",
                     "/index.html",
@@ -73,14 +102,14 @@ public class SecurityConfig {
                 ).permitAll()
                 .requestMatchers("/api/ai/**").permitAll()
 
-                // Protected endpoints
+                // Admin and staff endpoints
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .requestMatchers("/staff/**")
                     .hasAnyRole("STAFF", "ADMIN")
                 .requestMatchers("/api/queue/*/next")
                     .hasAnyRole("STAFF", "ADMIN")
 
-                // Everything else requires authentication
+                // Other endpoints require authentication
                 .anyRequest().authenticated()
             );
 
