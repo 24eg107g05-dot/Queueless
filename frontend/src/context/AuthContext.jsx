@@ -1,4 +1,4 @@
-```jsx
+
 import React, {
   createContext,
   useContext,
@@ -142,4 +142,3 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
-```
