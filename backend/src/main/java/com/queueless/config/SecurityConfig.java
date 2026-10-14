@@ -1,3 +1,4 @@
+
 package com.queueless.config;
 
 import com.queueless.security.JwtAuthenticationFilter;
@@ -46,17 +47,17 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(
-            List.of("https://superb-pegasus-2dc764.netlify.app")
-        );
+        configuration.setAllowedOrigins(List.of(
+            "https://24eg107g05.netlify.app"
+        ));
 
-        configuration.setAllowedMethods(
-            List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
-        );
+        configuration.setAllowedMethods(List.of(
+            "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"
+        ));
 
-        configuration.setAllowedHeaders(
-            List.of("Authorization", "Content-Type", "Accept", "Origin")
-        );
+        configuration.setAllowedHeaders(List.of(
+            "Authorization", "Content-Type", "Accept", "Origin"
+        ));
 
         configuration.setAllowCredentials(true);
 
@@ -76,10 +77,11 @@ public class SecurityConfig {
             .cors(Customizer.withDefaults())
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session ->
-                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                session.sessionCreationPolicy(
+                    SessionCreationPolicy.STATELESS
+                )
+            )
             .authorizeHttpRequests(auth -> auth
-
-                // React frontend static files
                 .requestMatchers(
                     "/",
                     "/index.html",
@@ -90,8 +92,15 @@ public class SecurityConfig {
                     "/robots.txt"
                 ).permitAll()
 
-                // Public endpoints
-                .requestMatchers("/api/auth/**").permitAll()
+                // Allow login and registration without a JWT
+                .requestMatchers(
+                    "/auth/login",
+                    "/auth/register",
+                    "/api/auth/login",
+                    "/api/auth/register",
+                    "/api/auth/**"
+                ).permitAll()
+
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers("/api/services/**").permitAll()
                 .requestMatchers(
@@ -109,7 +118,6 @@ public class SecurityConfig {
                 .requestMatchers("/api/queue/*/next")
                     .hasAnyRole("STAFF", "ADMIN")
 
-                // Other endpoints require authentication
                 .anyRequest().authenticated()
             );
 
